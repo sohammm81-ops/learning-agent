@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from llm import generate_reply
 
 app = FastAPI(title="Learning Agent API")
 
@@ -11,14 +13,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
+
 @app.post("/chat")
 def chat(req: ChatRequest):
-    # Mock response. We replace this with a real AI model in Phase 3.
-    return {"reply": f"You said: {req.message}"}
+    message = req.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is empty.")
+    try:
+        reply = generate_reply(message)
+        return {"reply": reply}
+    except Exception as e:
+        print("LLM error:", repr(e))  # full error appears in your backend terminal
+        text = str(e).lower()
+        if "429" in text or "quota" in text or "rate" in text:
+            raise HTTPException(status_code=429, detail="Rate limit reached. Try again in a minute.")
+        raise HTTPException(status_code=502, detail="The AI service failed. Please try again.")
