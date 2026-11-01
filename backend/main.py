@@ -32,8 +32,10 @@ def chat(req: ChatRequest):
         reply = generate_reply(message)
         return {"reply": reply}
     except Exception as e:
-        print("LLM error:", repr(e))  # full error appears in your backend terminal
+        print("LLM error:", repr(e))
         text = str(e).lower()
         if "429" in text or "quota" in text or "rate" in text:
             raise HTTPException(status_code=429, detail="Rate limit reached. Try again in a minute.")
+        if "503" in text or "unavailable" in text:
+            raise HTTPException(status_code=503, detail="The AI model is busy right now. Please try again in a moment.")
         raise HTTPException(status_code=502, detail="The AI service failed. Please try again.")
